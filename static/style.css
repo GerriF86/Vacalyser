@@ -1,0 +1,29 @@
+/* Beispiel-Styles - passe diese an deine Bedürfnisse an */
+body {
+    font-family: sans-serif;
+}
+
+.stButton>button {
+    color: #ffffff;
+    background-color: #0d47a1;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    font-weight: bold;
+}
+
+.stButton>button:hover {
+    background-color: #0a357a;
+}
+
+.stTextInput>div>div>input {
+    border: 1px solid #0d47a1;
+}
+
+.stTextArea>div>div>textarea {
+    border: 1px solid #0d47a1;
+}
+
+.stCheckbox>label {
+    font-weight: bold;
+}
