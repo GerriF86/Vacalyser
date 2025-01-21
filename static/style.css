@@ -1,11 +1,27 @@
-/* Beispiel-Styles - passe diese an deine Bedürfnisse an */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
 body {
-    font-family: sans-serif;
+    font-family: 'Roboto', sans-serif;
+}
+
+/* General Text Elements */
+body, p, li, h1, h2, h3, h4, h5, h6 {
+    font-family: 'Roboto', sans-serif !important;
+}
+
+/* Specific Streamlit Components */
+.stTextInput, .stButton, .stSelectbox, .stMultiselect, .stSlider, .stNumberInput, .stTextArea, .stCheckbox, .stFileUploader {
+    font-family: 'Roboto', sans-serif !important;
+}
+
+/* Code Elements */
+code {
+    font-family: 'Courier New', Courier, monospace !important;
 }
 
 .stButton>button {
     color: #ffffff;
-    background-color: #0d47a1;
+    background-color: #696969;
     border: none;
     padding: 0.5rem 1rem;
     border-radius: 5px;
@@ -13,17 +29,61 @@ body {
 }
 
 .stButton>button:hover {
-    background-color: #0a357a;
+    background-color: #4F4F4F; /* Darker grey for hover */
 }
 
 .stTextInput>div>div>input {
-    border: 1px solid #0d47a1;
+    border: 1px solid #696969;
 }
 
 .stTextArea>div>div>textarea {
-    border: 1px solid #0d47a1;
+    border: 1px solid #696969;
 }
 
 .stCheckbox>label {
     font-weight: bold;
+}
+
+/* Header Styling */
+.header-container {
+    background-color: #D3D3D3;
+    padding: 20px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+/* Logo Styling */
+.logo-container {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+/* Welcome Message Styling */
+.welcome-message {
+    font-size: 1.5em;
+    color: #222222;
+    text-align: center;
+    margin-top: 10px;
+    margin-bottom: 30px;
+}
+
+/* Job Title Input Styling */
+.job-title-label {
+    font-size: 1.2em;
+    color: #222222;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+/* Center Elements */
+.center {
+    text-align: center;
+}
+
+/* PDF Uploader Styling */
+.pdf-uploader {
+    margin-top: 20px;
+    margin-bottom: 20px;
 }

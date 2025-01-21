@@ -1,30 +1,30 @@
 [theme]
-# Primärfarbe (aus dem Bild, dunkles Grau)
+# Primary color (Dark Grey)
 primaryColor = "#696969"
 
-# Hintergrundfarbe (aus dem Bild, sehr helles Grau/Weiß)
+# Background color (Very light grey/White)
 backgroundColor = "#F8F8F8"
 
-# Sekundäre Hintergrundfarbe (aus dem Bild, dunkleres Grau)
+# Secondary background color (Grey)
 secondaryBackgroundColor = "#D3D3D3"
 
-# Textfarbe (fast Schwarz für Kontrast auf hellem Hintergrund)
+# Text color (Almost Black)
 textColor = "#222222"
 
-# Schriftart (aus dem Bild, Comfortaa)
-font = "sans serif" # Streamlit unterstützt keine custom fonts, daher als Näherungswert "sans serif"
+# Font
+font = "sans serif"
 
 [client]
-# Deaktiviert das Hamburger-Menü oben rechts
+# Hide the menu button
 toolbarMode = "minimal"
 
 [runner]
-# Deaktiviert das schnelle Neuladen (sollte im Produktivbetrieb deaktiviert sein)
+# Disable fast reruns during development
 fastReruns = false
 
 [server]
-# CORS-Einstellungen (anpassen, falls nötig)
+# CORS settings (adjust if needed)
 enableCORS = false
 
-# XSRF-Schutz-Einstellungen (aktivieren, wenn nötig)
+# XSRF protection (enable if needed)
 enableXsrfProtection = false

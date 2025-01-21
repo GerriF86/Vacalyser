@@ -8,13 +8,170 @@ import PyPDF2
 from config import MODEL_NAME, OLLAMA_URL, DATA_DIR, INDEX_PATH, DIMENSION
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
-from langchain.document_loaders import JSONLoader
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import FAISS
+from langchain_community.document_loaders import JSONLoader
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
 from langchain.chains import RetrievalQA
-from langchain.llms import Ollama
+from langchain_ollama import OllamaLLM 
 import os
 import re
+import streamlit as st
+import base64
+from PIL import Image
+
+# --- Constants ---
+MODEL_NAME = "llama3.2:3b"
+OLLAMA_URL = "http://localhost:11434/api/generate"
+DATA_DIR = "APP/data/processed"
+INDEX_PATH = "vector_databases/faiss_index.index"
+DIMENSION = 768
+
+# --- FAISS Index laden ---
+index = None  # Initialisiere die Variable index
+metadata = [] # Initialisiere die Variable metadata
+if os.path.exists(INDEX_PATH):
+    try:
+        index = faiss.read_index(INDEX_PATH)
+        json_files = []
+        for root, _, files in os.walk(DATA_DIR):
+            for file in files:
+                if file.endswith(".json"):
+                    json_files.append(os.path.join(root, file))
+        json_files.sort()
+        
+        # Stelle sicher, dass metadata als globale Variable verfügbar ist
+        global metadata
+        metadata = []
+        
+        for json_file in json_files:
+            with open(json_file, 'r') as f:
+                data = json.load(f)
+                metadata.append(data)
+        print(f"Geladene Metadaten: {len(metadata)}")
+    except Exception as e:
+        st.error(f"Fehler beim Laden des FAISS-Index: {e}")
+        index = None
+        metadata = []
+else:
+    st.warning("FAISS-Index nicht gefunden. Bitte zuerst `populate_vectordb.py` ausführen.")
+    index = None
+    metadata = []
+
+# --- Helper Functions ---
+def styled_button(label, key=None):
+    return st.button(label, key=key)
+
+def parse_bullet_points(text):
+    items = re.findall(r"[-*•]\s*(.*)", text)
+    return items
+
+def get_base64_encoded_image(image_path):
+    with open(image_path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode()
+
+def set_bg_hack(main_bg):
+    main_bg_ext = "png"
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background: url(data:image/{main_bg_ext};base64,{base64.b64encode(open(main_bg, "rb").read()).decode()});
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+def query_ollama(model_name, input_text):
+    try:
+        with requests.post(
+            OLLAMA_URL,
+            json={"model": model_name, "prompt": input_text},
+            stream=True,
+        ) as response:
+            response.raise_for_status()
+
+            full_response = ""
+            for line in response.iter_lines(decode_unicode=True):
+                if line.strip():
+                    try:
+                        json_line = json.loads(line)
+                        full_response += json_line.get("response", "")
+                    except json.JSONDecodeError:
+                        print(f"JSON Decode Error: {line}")
+                        continue
+            return full_response
+    except requests.exceptions.RequestException as e:
+        print(f"Request Error: {e}")
+        return ""
+
+# --- PDF Extraction Functions ---
+def extract_text_from_pdf_pypdf2(pdf_file):
+    """Extrahiert Text aus einem PDF mit PyPDF2."""
+    text = ""
+    try:
+        pdf_reader = PyPDF2.PdfReader(pdf_file)
+        for page in pdf_reader.pages:
+            text += page.extract_text()
+    except Exception as e:
+        print(f"Fehler beim Extrahieren von Text mit PyPDF2: {e}")
+    return text
+
+# --- RAG Functions ---
+def get_relevant_documents(query, n_results=3):
+    global index, metadata  # Verwende die globalen Variablen
+
+    if index is None or not metadata:
+        st.warning("FAISS-Index oder Metadaten nicht geladen.")
+        return []
+
+    query_vector = np.zeros((1, DIMENSION), dtype=np.float32)
+    distances, indices = index.search(query_vector, n_results)
+
+    relevant_documents = []
+    for i in indices[0]:
+        if i < len(metadata):
+            relevant_documents.append(metadata[i]['job_description'])
+        else:
+            print(f"Index {i} ist außerhalb des gültigen Bereichs.")
+    return relevant_documents
+
+def rag_enhanced_query(query, context_documents):
+    context_string = " ".join(context_documents)
+    enhanced_query = f"""
+    Basierend auf dem folgenden Kontext:
+    ---
+    {context_string}
+    ---
+    Beantworte die folgende Frage:
+    {query}
+    """
+    return enhanced_query
+
+def extract_additional_fields_from_pdf_text(text):
+    fields = {}
+    lines = text.split('\n')
+    for i, line in enumerate(lines):
+        if "company:" in line.lower():
+            fields["company"] = lines[i].split(":", 1)[1].strip()
+        elif "location:" in line.lower():
+            fields["location"] = lines[i].split(":", 1)[1].strip()
+        elif "position type:" in line.lower():
+            fields["permanent_position"] = "yes" if "permanent" in lines[i].split(":", 1)[1].strip().lower() else "no"
+        elif "full time/part time:" in line.lower():
+            fields["full_time"] = "yes" if "full time" in lines[i].split(":", 1)[1].strip().lower() else "no"
+        elif "phone number:" in line.lower():
+            fields["phone_number"] = lines[i].split(":", 1)[1].strip()
+        elif "email address:" in line.lower():
+            fields["email"] = lines[i].split(":", 1)[1].strip()
+        elif "contact person:" in line.lower():
+            fields["contact_person"] = lines[i].split(":", 1)[1].strip()
+        elif "salary range:" in line.lower():
+            fields["salary_range_pdf"] = lines[i].split(":", 1)[1].strip()
+    return fields
 
 # Initialize embedding model globally
 embedding_model = HuggingFaceEmbeddings(model_name='sentence-transformers/all-mpnet-base-v2')
@@ -23,17 +180,33 @@ qa_chain = None
 
 def initialize_rag(model_name=MODEL_NAME, model_url=OLLAMA_URL):
     global vectorstore, qa_chain
-    
-    vectorstore = FAISS.load_local(INDEX_PATH, embedding_model)
 
-    llm = Ollama(model=model_name, base_url=model_url)  # Parameter anpassen
-    
+    index_folder = "vector_databases"
+    index_file = os.path.join(index_folder, "faiss_index.index")
+
+    if not os.path.exists(index_file):
+        st.error(f"Index file not found at {index_file}. Please run populate_vectordb.py first.")
+        return False
+
+    # Laden des Index direkt mit faiss.read_index und vollständigem Pfad
+    try:
+        index = faiss.read_index(index_file) # Vollständigen Pfad direkt verwenden
+    except Exception as e:
+        st.error(f"Error loading index: {e}")
+        return False
+
+    vectorstore = FAISS(embedding_model.embed_query, index, {}, {}) # Leeres Dictionary für docstore und index_to_docstore_id
+
+    llm = OllamaLLM(model=model_name, base_url=model_url)
+
     qa_chain = RetrievalQA.from_chain_type(
         llm=llm,
         chain_type="stuff",
-        retriever=vectorstore.as_retriever(search_kwargs={"k": 3}), # Anzahl der Dokumente (k) anpassen
+        retriever=vectorstore.as_retriever(search_kwargs={"k": 3}),
         return_source_documents=True
     )
+
+    return True
     
 def query_with_rag(query):
     """
@@ -450,6 +623,7 @@ def prepare_interview(role, focus_areas):
     """
     response = query_ollama(MODEL_NAME, prompt)
     return parse_bullet_points(response)
+
 def create_onboarding_checklist(role, department):
     prompt = f"""
     Create a comprehensive onboarding checklist for a {role} in {department}.
@@ -526,24 +700,38 @@ def generate_welcome_message():
 def set_bg_hack(main_bg):
     main_bg_ext = "png"
     try:
-      with open(main_bg, "rb") as img_file:
-          encoded_string = base64.b64encode(img_file.read()).decode()
-      st.markdown(
-          f"""
-          <style>
-          .stApp {{
-              background: url(data:image/{main_bg_ext};base64,{encoded_string});
-              background-size: cover;
-              background-repeat: no-repeat;
-              background-attachment: fixed;
-          }}
-          </style>
-          """,
-          unsafe_allow_html=True
-      )
+        with open(main_bg, "rb") as img_file:
+            encoded_string = base64.b64encode(img_file.read()).decode()
+        st.markdown(
+            f"""
+            <style>
+            .stApp {{
+                background: url(data:image/{main_bg_ext};base64,{encoded_string});
+                background-size: cover;
+                background-repeat: no-repeat;
+                background-attachment: fixed;
+            }}
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
     except FileNotFoundError:
-      print(f"Warning: Background image file not found at {main_bg}")
-    
+        print(f"Warning: Background image file not found at {main_bg}")
+
+def hide_sidebar_content():
+    st.markdown(
+        """
+        <style>
+            [data-testid="stSidebar"] {
+                .css-1cpxqw2 {display: none;} /* Welcome Message */
+                .css-j463ke {display: none;} /* About the app */
+                .css-1siy2j7 {display: none;} /* Generate Description */
+                .css-pkbazv {display: none;} /* About us */
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     
 # --- Page Functions ---
 def welcome_page():

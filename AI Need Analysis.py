@@ -1,9 +1,10 @@
 import streamlit as st
-from utils import *
+from utils import *  # Richtig: Importiere set_bg_hack
 from config import *
 
 # Importiere die Seiten aus dem pages-Ordner
 from pages import welcome_page, data_extraction_page, company_details_page, job_details_page, tasks_page, skills_page, benefits_page, recruitment_process_page, summary_page, about_us_page
+
 
 # --- Main App Logic ---
 # Initialisiere Session-State Variablen
@@ -54,8 +55,7 @@ if "page" not in st.session_state:
         "required_skills": [],
         "contact_person": "",
         "contact_email": "",
-        "contract_type": ""
-    }
+        "contract_type": ""}
     st.session_state.tasks = []
     st.session_state.selected_tasks = []
     st.session_state.task_frequencies = {}
@@ -75,40 +75,31 @@ if "page" not in st.session_state:
     st.session_state.onboarding_checklist = []
     st.session_state.retention_strategies = []
 
-
+# --- Sidebar ---
+# Only put navigation buttons in the sidebar
+with st.sidebar:
+    if st.button("About Us", key="about_us_sidebar"):
+        st.session_state.page = "about_us_page"
+        st.rerun()
 
 # Seitenaufrufe
 if st.session_state.page == "welcome_page":
-    welcome_page.main()  # Rufe die main-Funktion der jeweiligen Seite auf
+    welcome_page.main() # Rufe die main-Funktion der jeweiligen Seite auf
 elif st.session_state.page == "data_extraction_page":
-    data_extraction_page.main()
+    data_extraction_page.main()
 elif st.session_state.page == "company_details_page":
-    company_details_page.main()
+    company_details_page.main()
 elif st.session_state.page == "job_details_page":
-    job_details_page.main()
+    job_details_page.main()
 elif st.session_state.page == "tasks_page":
-    tasks_page.main()
+    tasks_page.main()
 elif st.session_state.page == "skills_page":
-    skills_page.main()
+    skills_page.main()
 elif st.session_state.page == "benefits_page":
-    benefits_page.main()
+    benefits_page.main()
 elif st.session_state.page == "recruitment_process_page":
-    recruitment_process_page.main()
+    recruitment_process_page.main()
 elif st.session_state.page == "summary_page":
-    summary_page.main()
+    summary_page.main()
 elif st.session_state.page == "about_us_page":
-    about_us_page.main()
-
-# --- Sidebar ---
-with st.sidebar:
-    generate_welcome_message()
-    st.subheader("About the App")
-    if styled_button("Generate Description", key="generate_description_sidebar"):
-        with st.spinner("Generating app description..."):
-            description = query_ollama(MODEL_NAME, "Describe an AI-powered talent acquisition app called RecruitSmarts in 3 sentences. Focus on its key features and benefits.")
-            st.session_state.app_description = description
-    if "app_description" in st.session_state:
-        st.write(st.session_state.app_description)
-    
-    if styled_button("About Us", key="about_us_sidebar"):
-        st.session_state.page = "about_us_page"
+    about_us_page.main()
