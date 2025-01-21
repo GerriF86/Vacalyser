@@ -1,13 +1,8 @@
 import streamlit as st
-from utils import set_bg_hack, query_ollama, extract_text_from_pdf_pypdf2, extract_additional_fields_from_pdf_text, rag_enhanced_query, get_relevant_documents, parse_bullet_points  # Importiere die benötigten Funktionen
-
-def navigate_to_page(page_name):
-    st.session_state.page = page_name
+from utils import get_base64_encoded_image, extract_text_from_pdf_pypdf2, extract_data_from_pdf_rag, set_bg_hack
 
 def main():
-    # Hintergrundbild (angepasst an neues Verzeichnis)
-    set_bg_hack("static/screenshot.png")
-
+    # --- STYLING ---
     # Importiere Roboto Schriftart
     st.markdown(
         """
@@ -15,13 +10,57 @@ def main():
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
 
         /* Alle Textelemente */
-        body, p, li, h1, h2, h3, h4, h5, h6, .stTextInput, .stButton, .stSelectbox, .stMultiselect, .stSlider, .stNumberInput, .stTextArea, .stCheckbox {
+        body, p, li, h1, h2, h3, h4, h5, h6, .stTextInput, .stButton, .stSelectbox, .stMultiselect, .stSlider, .stNumberInput, .stTextArea, .stCheckbox, .stFileUploader {
             font-family: 'Roboto', sans-serif !important;
         }
 
         /* Code-Elemente */
         code {
             font-family: 'Courier New', Courier, monospace !important;
+        }
+
+        /* Header-Styling */
+        .header-container {
+            background-color: #D3D3D3;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        /* Logo-Styling */
+        .logo-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        /* Welcome Message Styling */
+        .welcome-message {
+            font-size: 1.5em;
+            color: #222222;
+            text-align: center;
+            margin-top: 10px;
+            margin-bottom: 30px;
+        }
+
+        /* Job Title Input Styling */
+        .job-title-label {
+            font-size: 1.2em;
+            color: #222222;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        /* Zentrierung von Elementen */
+        .center {
+            text-align: center;
+        }
+
+        /* PDF Uploader Styling */
+        .pdf-uploader {
+            margin-top: 20px;
+            margin-bottom: 20px;
         }
         </style>
         """,
@@ -36,9 +75,9 @@ def main():
 
     # Job Title Input
     st.markdown("<div class='job-title-label'>Geben Sie eine Stellenbezeichnung ein</div>", unsafe_allow_html=True)
-    st.session_state.role_info["job_title"] = st.text_input(
+    st.session_state.job_details["job_title"] = st.text_input(
         label="Stellenbezeichnung",
-        value=st.session_state.role_info.get("job_title", ""),
+        value=st.session_state.job_details.get("job_title", ""),
         placeholder="z.B. Data Scientist, Marketing Manager",
         key="job_title_input",
         label_visibility='collapsed'
@@ -46,8 +85,9 @@ def main():
 
     # Button (zentriert)
     st.markdown("<div class='center'>", unsafe_allow_html=True)
-    if st.session_state.role_info["job_title"] and st.button("**Profil erstellen**", key="start_button_manual"):
-        navigate_to_page("data_extraction_page") # Hier muss die richtige Folgeseite angegeben werden
+    if st.session_state.job_details["job_title"] and st.button("**Profil erstellen**", key="start_button_manual"):
+        st.session_state.page = "company_details_page"
+        st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
     # PDF Upload (unauffälliger)
@@ -62,24 +102,22 @@ def main():
 
             # Daten extrahieren (RAG-basiert)
             try:
-                extracted_data = extract_data_from_pdf_rag(uploaded_file)
+                with st.spinner('Daten werden extrahiert...'):
+                    extracted_data = extract_data_from_pdf_rag(uploaded_file)
 
                 # Session state aktualisieren
                 st.session_state.pdf_text = text
-                # Hier werden die Werte aus extracted_data dem Session State zugewiesen,
-                # wobei ein leerer String als Standardwert verwendet wird, falls ein Schlüssel nicht vorhanden ist.
-                st.session_state.role_info["job_title"] = extracted_data.get("job_title", "")
-                st.session_state.role_info["location"] = extracted_data.get("location", "")
-                st.session_state.company_info["Company Name"] = extracted_data.get("company", "") # Feld "company" zu "company_name" korrigiert.
+                st.session_state.job_details["job_title"] = extracted_data.get("job_title", "")
+                st.session_state.job_details["location"] = extracted_data.get("job_location", "")
+                st.session_state.company_info["company_name"] = extracted_data.get("company_name", "")
                 st.session_state.tasks = extracted_data.get("tasks", [])
                 st.session_state.benefits = extracted_data.get("benefits", [])
                 st.session_state.company_info["company_description"] = extracted_data.get("company_description", "")
-                st.session_state.role_info["required_skills"] = extracted_data.get("required_skills", [])
+                st.session_state.job_details["required_skills"] = extracted_data.get("required_skills", [])
 
-                # Button, um zur nächsten Seite zu navigieren
-                if st.button("Proceed to Data Review", key="start_button"):
-                    navigate_to_page("data_extraction_page")  # Hier den Namen deiner Folgeseite einsetzen
-                    st.rerun() # Nicht ideal, aber notwendig, um die Daten auf der Folgeseite direkt anzuzeigen
+                # Navigiere zur nächsten Seite nach erfolgreicher Extraktion
+                st.session_state.page = "company_details_page"
+                st.rerun()
 
             except Exception as e:
                 st.error(f"Fehler bei der Datenextraktion: {e}")
