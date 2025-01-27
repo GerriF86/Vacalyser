@@ -1,3 +1,9 @@
+[ui]
+showSidebarNavigation = true
+
+[browser]
+toolbarMode = "minimal"
+
 [theme]
 # Primary color (Dark Grey)
 primaryColor = "#696969"

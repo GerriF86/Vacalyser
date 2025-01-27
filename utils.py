@@ -9,12 +9,13 @@ import numpy as np
 import os
 import PyPDF2
 from langchain_huggingface import HuggingFaceEmbeddings
-
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
 # --- Constants ---
 MODEL_NAME = "llama3.2:3b"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 DATA_DIR = "data/processed"
-INDEX_PATH = "vector_databases/faiss_index.index"
+INDEX_PATH = "vector_databases"
 DIMENSION = 768
 
 # --- FAISS Index laden ---
@@ -62,7 +63,20 @@ def get_base64_encoded_image(image_path):
     with open(image_path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode()
 
-    
+def load_system_message(message_type):
+    """Loads the system message for a specific task type."""
+    system_messages = {
+        "job_ad": "You are a helpful assistant that creates appealing job advertisements.",
+        "interview_questions": "You are a helpful assistant that generates relevant interview questions.",
+        "onboarding_checklist": "You are a helpful assistant that creates detailed onboarding checklists.",
+        "retention_strategies": "You are a helpful assistant that suggests effective employee retention strategies.",
+    }
+    return system_messages.get(message_type, "")
+
+def get_file_extension(file_path):
+    """Determines the file extension."""
+    return os.path.splitext(file_path)[1].lower()
+
 def query_ollama(model_name, input_text):
     try:
         with requests.post(

@@ -1,54 +1,63 @@
+# pages/6_tasks_page.py
 import streamlit as st
-from utils import *
+from ui_elements import centered_title
+from core_functions import get_tasks_for_job_title
 
 def main():
-    job_title = st.session_state.job_details["job_title"]
-    st.header(f"Tasks for {job_title}")
+    """Functions of the tasks page of the Streamlit application."""
+    centered_title("Tasks")
 
+    # Initialize Session State if not existing
+    if "job_details" not in st.session_state:
+        st.session_state.job_details = {}
     if "task_frequencies" not in st.session_state:
         st.session_state.task_frequencies = {}
+    if "selected_tasks" not in st.session_state:
+        st.session_state.selected_tasks = []
 
-    # Stelle sicher, dass st.session_state.tasks initialisiert ist
-    if "tasks" not in st.session_state:
-        st.session_state.tasks = []
+    # Load predefined tasks for the job title if available
+    job_title = st.session_state.job_details.get("job_title", "")
+    if job_title:
+        try:
+            predefined_tasks = get_tasks_for_job_title(job_title)
+        except Exception as e:
+            st.error(f"Error loading predefined tasks: {e}")
+            predefined_tasks = []
+    else:
+        predefined_tasks = []
 
-    for task in st.session_state.tasks:
-        col1, col2 = st.columns([2, 1])
-
-        with col1:
-            if st.checkbox(task, key=f"{task}_checkbox"):
+    # Select tasks with checkboxes in two columns
+    col1, col2 = st.columns(2)
+    for i, task in enumerate(predefined_tasks):
+        with col1 if i % 2 == 0 else col2:
+            is_selected = st.checkbox(
+                task,
+                key=f"task_{task}",
+                value=task in st.session_state.selected_tasks,
+            )
+            if is_selected:
                 if task not in st.session_state.selected_tasks:
                     st.session_state.selected_tasks.append(task)
-
-                    if task not in st.session_state.task_frequencies:
-                        st.session_state.task_frequencies[task] = "Often"
             else:
                 if task in st.session_state.selected_tasks:
                     st.session_state.selected_tasks.remove(task)
-                    if task in st.session_state.task_frequencies:
-                        del st.session_state.task_frequencies[task]
 
-        with col2:
-            if task in st.session_state.selected_tasks:
-                frequency = st.selectbox(
-                    label=f"Frequency of {task}",
-                    options=["Often", "Occasionally", "Rarely"],
-                    index=["Often", "Occasionally", "Rarely"].index(st.session_state.task_frequencies.get(task, "Often")),
-                    key=f"{task}_frequency"
-                )
-                st.session_state.task_frequencies[task] = frequency
+    # Task frequencies
+    if st.session_state.selected_tasks:
+        for task in st.session_state.selected_tasks:
+            st.session_state.task_frequencies[task] = st.selectbox(
+                f"Frequency for '{task}'",
+                ["Daily", "Weekly", "Monthly", "Quarterly", "Yearly", "On Demand"],
+                key=f"frequency_{task}",
+                index=get_index_for_value(
+                    st.session_state.task_frequencies.get(task),
+                    ["Daily", "Weekly", "Monthly", "Quarterly", "Yearly", "On Demand"],
+                ),
+            )
 
-    manual_task = st.text_input(label="Add a custom task:", placeholder="e.g., Organize team events")
-    if manual_task:
-        st.session_state.selected_tasks.append(manual_task)
-        st.session_state.task_frequencies[manual_task] = "Often"  # Standardmäßig auf "Often" setzen
-
-    # Button Layout anpassen
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col3:
-        if st.button("Next: Recruitment Process"):
-            st.session_state.page = "recruitment_process_page"
-            st.rerun()
+    if st.button("Next: Skills"):
+        st.session_state.current_page = "skills_page"
+        st.rerun()
 
 if __name__ == "__main__":
     main()

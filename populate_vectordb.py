@@ -1,19 +1,20 @@
-import faiss
 import json
+from langchain_community.vectorstores import FAISS
 import os
-import numpy as np
-from tqdm import tqdm  # Korrektur: Importiere tqdm direkt
+from tqdm import tqdm
 from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_core.documents import Document
 
-DATA_DIR = "data/processed"  # Pfad zu den Daten für den FAISS-Index relativ zu app.py
-INDEX_PATH = "vector_databases/faiss_index.index"  # Pfad zur FAISS-Indexdatei relativ zu app.py
+DATA_DIR = "data/processed"
+INDEX_PATH = "vector_databases"  # Still just the directory
+DB_NAME = "index" # The desired name of the index file
 DIMENSION = 768
 
 def load_data(data_dir):
     """
-    Lädt die Daten aus den JSON-Dateien und gibt sie als Liste von Dictionaries zurück.
+    Loads data from JSON files and returns it as a list of dictionaries.
     """
-    print(f"Lade Daten aus: {data_dir}")
+    print(f"Loading data from: {data_dir}")
     data = []
     for root, _, files in os.walk(data_dir):
         for file in files:
@@ -30,75 +31,58 @@ def load_data(data_dir):
                         job_data['id'] = os.path.join(relative_root, file[:-5])
                         data.append(job_data)
                     except json.JSONDecodeError:
-                        print(f"Fehler beim Parsen von {filepath}")
-    print(f"Gefundene Datensätze: {len(data)}")
+                        print(f"Error parsing {filepath}")
+    print(f"Found data records: {len(data)}")
     return data
 
-def create_embedding_vector_db(chunks, db_name="faiss_index"):
+def create_and_save_faiss_index(data, index_path=INDEX_PATH, db_name=DB_NAME):
     """
-    Erstellt einen FAISS-Index, fügt die Vektoren der Daten hinzu und speichert den Index.
+    Creates a FAISS index using LangChain, adds data, and saves it.
     """
     try:
-        # Instantiate embedding model (without GPU)
+        # Instantiate embedding model
         embedding = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-mpnet-base-v2",
+            model_name="sentence-transformers/all-mpnet-base-v2"
         )
 
-        # Erstelle einen leeren Index
-        print(f"Erstelle Index: {db_name} mit Dimension {DIMENSION}")
-        index = faiss.IndexFlatL2(DIMENSION)
+        # Create a list of Documents (required by LangChain's FAISS)
+        documents = [
+            Document(page_content=item["job_description"], metadata={"id": item["id"]})
+            for item in data
+        ]
 
-        batch_size = 16
+        # Create the FAISS index using from_documents
+        print(f"Creating FAISS index: {db_name} with dimension {DIMENSION}")
+        faiss_index = FAISS.from_documents(documents, embedding)
 
-        with tqdm(total=len(chunks), desc=f"Erstelle Index {db_name}") as pbar:
-            for i in range(0, len(chunks), batch_size):
-                chunk_batch = chunks[i:i + batch_size]
+        # Save the index using save_local (LangChain's method)
+        faiss_index.save_local(index_path, index_name=db_name)
+        print(f"FAISS index saved to {index_path}/{db_name}")
 
-                # Embeddings für den aktuellen Batch von Chunks berechnen
-                embeddings = embedding.embed_documents([chunk['job_description'] for chunk in chunk_batch])
-
-                # Konvertiere die Liste der Embeddings in ein NumPy-Array
-                vectors_array = np.array(embeddings).astype('float32')
-
-                # Füge die Vektoren zum Index hinzu
-                print(f"Füge {len(vectors_array)} Vektoren zum Index hinzu.")
-                index.add(vectors_array)
-                pbar.update(len(chunk_batch))
-
-        # Erstelle das Verzeichnis, falls es nicht existiert
-        index_dir = os.path.dirname(INDEX_PATH)
-        os.makedirs(index_dir, exist_ok=True)
-
-        # Speichere den Index (korrigierter Dateiname)
-        index_path = os.path.join(index_dir, f"{db_name}.index")  # Speichere als .index
-        print(f"Speichere Index in {index_path}")
-        faiss.write_index(index, index_path)
-        print(f"FAISS-Index wurde in {index_path} gespeichert.")
-        return index
+        return faiss_index
 
     except Exception as e:
-        print(f"Fehler beim Erstellen oder Speichern des Index: {e}")
+        print(f"Error creating or saving the index: {e}")
         return None
 
 def main():
     """
-    Lädt die Daten, erstellt den FAISS-Index und speichert ihn.
+    Loads the data, creates the FAISS index using LangChain, and saves it.
     """
     data = load_data(DATA_DIR)
-    print(f"Anz. der geladenen Datensätze in main(): {len(data)}")
+    print(f"Number of loaded data records in main(): {len(data)}")
     if not data:
-        print("Keine Daten gefunden. Beende Skript.")
+        print("No data found. Exiting script.")
         return
 
-    # Sortiere die Daten alphabetisch nach dem Jobtitel
+    # Sort the data alphabetically by job title
     data.sort(key=lambda x: x.get('job_title', ''))
 
-    index = create_embedding_vector_db(chunks=data, db_name="faiss_index") #Statt create_and_populate_index(data)
-    print(f"Index: {index}")
-    if index:
-        print("Index erfolgreich erstellt.")
+    faiss_index = create_and_save_faiss_index(data, INDEX_PATH)
+    if faiss_index:
+        print("Index successfully created.")
     else:
-        print("Fehler beim Erstellen des Index.")
+        print("Error creating the index.")
 
 if __name__ == "__main__":
     main()
