@@ -17,17 +17,17 @@ initialize_rag_chain()
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'welcome'  # Start on the welcome page
 
-# Mapping of page names to functions
+# Mapping of page names to functions and tab indices
 page_map = {
-    'welcome': welcome_page,
-    'company_details': company_details_page,
-    'department_info': department_info_page,
-    'role_info': role_info_page,
-    'tasks': tasks_page,
-    'skills': skills_page,
-    'benefits': benefits_page,
-    'recruitment_process': recruitment_process_page,
-    'summary': summary_page,
+    'welcome': (welcome_page, 0),
+    'company_details': (company_details_page, 1),
+    'department_info': (department_info_page, 2),
+    'role_info': (role_info_page, 3),
+    'tasks': (tasks_page, 4),
+    'skills': (skills_page, 5),
+    'benefits': (benefits_page, 6),
+    'recruitment_process': (recruitment_process_page, 7),
+    'summary': (summary_page, 8),
 }
 
 # Set page config to wide layout
@@ -47,35 +47,28 @@ def main():
         "Summary"
     ])
 
-    # Tab names corresponding to indices
-    tab_names = list(page_map.keys())
-
-    # Update the current page based on session state
+    # Check for initial form submissions to set the appropriate tab
     if 'job_details' in st.session_state and st.session_state.job_details and st.session_state.current_page == 'welcome':
         st.session_state.current_page = 'company_details'
     if 'company_info' in st.session_state and st.session_state.company_info and st.session_state.current_page == 'company_details':
         st.session_state.current_page = 'department_info'
     if 'department' in st.session_state and st.session_state.department and st.session_state.current_page == 'department_info':
         st.session_state.current_page = 'role_info'
-    if 'job_title' in st.session_state.get('job_details', {}) and st.session_state.job_details['job_title'] and st.session_state.current_page == 'role_info':
+    if 'job_title' in st.session_state.job_details and st.session_state.job_details['job_title'] and st.session_state.current_page == 'role_info':
         st.session_state.current_page = 'tasks'
-    if 'selected_tasks' in st.session_state.get('job_details', {}) and st.session_state.job_details['selected_tasks'] and st.session_state.current_page == 'tasks':
+    if 'selected_tasks' in st.session_state.job_details and st.session_state.job_details['selected_tasks'] and st.session_state.current_page == 'tasks':
         st.session_state.current_page = 'skills'
-    if 'required_skills' in st.session_state.get('job_details', {}) and st.session_state.job_details['required_skills'] and st.session_state.current_page == 'skills':
+    if 'required_skills' in st.session_state.job_details and st.session_state.job_details['required_skills'] and st.session_state.current_page == 'skills':
         st.session_state.current_page = 'benefits'
     if 'selected_benefits' in st.session_state and st.session_state.selected_benefits and st.session_state.current_page == 'benefits':
         st.session_state.current_page = 'recruitment_process'
     if 'selected_recruitment_steps' in st.session_state and st.session_state.selected_recruitment_steps and st.session_state.current_page == 'recruitment_process':
         st.session_state.current_page = 'summary'
 
-    # Determine the current tab index
-    current_tab_index = tab_names.index(st.session_state.current_page)
-
-    # Render the corresponding page in its tab
-    for i, tab in enumerate(tabs):
-        with tab:
-            if i == current_tab_index:
-                page_map[st.session_state.current_page]()
+    # Render the current page in the corresponding tab
+    current_page_function, tab_index = page_map[st.session_state.current_page]
+    with tabs[tab_index]:
+        current_page_function()
 
 if __name__ == "__main__":
     main()
